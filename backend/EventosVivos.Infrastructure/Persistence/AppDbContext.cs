@@ -17,6 +17,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasIndex(x => x.ReservationCode)
             .IsUnique();
 
+        modelBuilder.Entity<Reservation>()
+            .HasIndex(x => new { x.EventId, x.Status, x.IsLost });
+
+        modelBuilder.Entity<Reservation>()
+            .HasIndex(x => new { x.BuyerEmail, x.Status, x.CreatedAt });
+
+        modelBuilder.Entity<Event>()
+            .HasIndex(x => new { x.VenueId, x.StartAt, x.EndAt });
+
+        modelBuilder.Entity<Event>()
+            .HasIndex(x => new { x.Status, x.StartAt });
+
         modelBuilder.Entity<Event>()
             .Property(x => x.Price)
             .HasPrecision(10, 2);

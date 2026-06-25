@@ -12,15 +12,11 @@ public sealed class ConfirmPaymentCommandHandler(IAppDbContext db, IDateTimeProv
 {
     public async Task<ConfirmPaymentResult> Handle(ConfirmPaymentCommand request, CancellationToken cancellationToken)
     {
-        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == request.ReservationId, cancellationToken);
+        var reservationCode = request.ReservationCode.Trim();
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.ReservationCode == reservationCode, cancellationToken);
         if (reservation is null)
         {
             throw new NotFoundException("Reservation not found.");
-        }
-
-        if (!string.Equals(reservation.ReservationCode, request.ReservationCode, StringComparison.Ordinal))
-        {
-            throw new ConflictException("Reservation code mismatch.");
         }
 
         if (reservation.Status == ReservationStatus.Confirmed)
@@ -34,17 +30,19 @@ public sealed class ConfirmPaymentCommandHandler(IAppDbContext db, IDateTimeProv
         }
 
         reservation.MarkConfirmed();
+        var confirmedAt = clock.UtcNow;
+        var paymentReference = $"PAY-{reservation.ReservationCode}-{confirmedAt:yyyyMMddHHmmss}";
 
         db.Payments.Add(new Payment
         {
             ReservationId = reservation.Id,
-            ConfirmedAt = clock.UtcNow,
-            Reference = request.Reference,
+            ConfirmedAt = confirmedAt,
+            Reference = paymentReference,
             Status = PaymentStatus.Confirmed,
         });
 
         await db.SaveChangesAsync(cancellationToken);
 
-        return new ConfirmPaymentResult(reservation.Id, reservation.ReservationCode, reservation.Status.ToString(), clock.UtcNow);
+        return new ConfirmPaymentResult(reservation.Id, reservation.ReservationCode, paymentReference, reservation.Status.ToString(), confirmedAt);
     }
 }

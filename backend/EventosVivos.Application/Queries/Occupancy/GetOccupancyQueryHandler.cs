@@ -27,47 +27,53 @@ public sealed class GetOccupancyQueryHandler(IAppDbContext db)
             events = events.Where(e => e.EndAt <= request.To.Value);
         }
 
-        var eventItems = await events.ToListAsync(cancellationToken);
-        var eventIds = eventItems.Select(e => e.Id).ToArray();
+        var nowUtc = DateTime.UtcNow;
 
-        var venueMap = await db.Venues
-            .AsNoTracking()
-            .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
-
-        var reservations = await db.Reservations
-            .AsNoTracking()
-            .Where(r => eventIds.Contains(r.EventId))
-            .ToListAsync(cancellationToken);
-
-        return eventItems.Select(ev =>
-        {
-            var items = reservations.Where(r => r.EventId == ev.Id);
-            var confirmedTickets = items
-                .Where(r => r.Status == ReservationStatus.Confirmed)
-                .Sum(r => r.Quantity);
-
-            var consumedForCapacity = items
-                .Where(r => r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.Pending || r.IsLost)
-                .Sum(r => r.Quantity);
-
-            var available = Math.Max(ev.Capacity - consumedForCapacity, 0);
-            var percent = ev.Capacity == 0 ? 0 : decimal.Round((decimal)consumedForCapacity * 100m / ev.Capacity, 2);
-            var revenue = decimal.Round(confirmedTickets * ev.Price, 2);
-            var effectiveStatus = ev.Status == EventStatus.Active && ev.EndAt < DateTime.UtcNow ? EventStatus.Completed : ev.Status;
-
-            return new OccupancyItemDto(
+        var items = await (
+            from ev in events
+            join venue in db.Venues.AsNoTracking() on ev.VenueId equals venue.Id
+            join reservation in db.Reservations.AsNoTracking() on ev.Id equals reservation.EventId into reservationGroup
+            orderby ev.StartAt
+            select new
+            {
                 ev.Id,
                 ev.Name,
                 ev.VenueId,
-                venueMap.GetValueOrDefault(ev.VenueId, $"Venue {ev.VenueId}"),
-                effectiveStatus,
+                VenueName = venue.Name,
+                ev.Status,
                 ev.Capacity,
-                consumedForCapacity,
-                confirmedTickets,
+                ev.Price,
+                ev.EndAt,
+                ConfirmedTicketsSold = reservationGroup
+                    .Where(r => r.Status == ReservationStatus.Confirmed)
+                    .Sum(r => (int?)r.Quantity) ?? 0,
+                CapacityConsumed = reservationGroup
+                    .Where(r => r.Status == ReservationStatus.Confirmed || r.Status == ReservationStatus.Pending || r.IsLost)
+                    .Sum(r => (int?)r.Quantity) ?? 0,
+                IncludesLostReservations = reservationGroup.Any(r => r.IsLost),
+            })
+            .ToListAsync(cancellationToken);
+
+        return items.Select(item =>
+        {
+            var available = Math.Max(item.Capacity - item.CapacityConsumed, 0);
+            var percent = item.Capacity == 0 ? 0 : decimal.Round((decimal)item.CapacityConsumed * 100m / item.Capacity, 2);
+            var revenue = decimal.Round(item.ConfirmedTicketsSold * item.Price, 2);
+            var effectiveStatus = item.Status == EventStatus.Active && item.EndAt < nowUtc ? EventStatus.Completed : item.Status;
+
+            return new OccupancyItemDto(
+                item.Id,
+                item.Name,
+                item.VenueId,
+                item.VenueName,
+                effectiveStatus,
+                item.Capacity,
+                item.CapacityConsumed,
+                item.ConfirmedTicketsSold,
                 available,
                 percent,
                 revenue,
-                items.Any(i => i.IsLost));
+                item.IncludesLostReservations);
         }).ToArray();
     }
 }

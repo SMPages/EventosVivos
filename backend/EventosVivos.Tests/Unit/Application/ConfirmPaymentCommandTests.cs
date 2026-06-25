@@ -15,8 +15,9 @@ public sealed class ConfirmPaymentCommandTests
         await db.SaveChangesAsync();
 
         var handler = new ConfirmPaymentCommandHandler(db, clock);
-        var result = await handler.Handle(new ConfirmPaymentCommand(1, "EV-123456", "PAY-1"), CancellationToken.None);
+        var result = await handler.Handle(new ConfirmPaymentCommand("EV-123456"), CancellationToken.None);
 
         result.Status.Should().Be("Confirmed");
+        result.PaymentReference.Should().StartWith("PAY-EV-123456-");
     }
 }

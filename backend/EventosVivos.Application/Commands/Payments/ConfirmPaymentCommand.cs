@@ -3,9 +3,7 @@ using MediatR;
 namespace EventosVivos.Application.Commands.Payments;
 
 public sealed record ConfirmPaymentCommand(
-    int ReservationId,
-    string ReservationCode,
-    string Reference
+    string ReservationCode
 ) : IRequest<ConfirmPaymentResult>;
 
-public sealed record ConfirmPaymentResult(int ReservationId, string ReservationCode, string Status, DateTime ConfirmedAt);
+public sealed record ConfirmPaymentResult(int ReservationId, string ReservationCode, string PaymentReference, string Status, DateTime ConfirmedAt);

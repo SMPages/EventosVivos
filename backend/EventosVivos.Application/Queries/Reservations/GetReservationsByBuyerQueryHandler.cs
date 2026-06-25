@@ -1,5 +1,6 @@
 using EventosVivos.Application.Abstractions;
 using EventosVivos.Application.Contracts.Reservations;
+using EventosVivos.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,10 +12,18 @@ public sealed class GetReservationsByBuyerQueryHandler(IAppDbContext db)
     public async Task<IReadOnlyCollection<ReservationDto>> Handle(GetReservationsByBuyerQuery request, CancellationToken cancellationToken)
     {
         var query = db.Reservations.AsNoTracking().AsQueryable();
+        ReservationStatus requestedStatus = default;
+        var hasStatusFilter = !string.IsNullOrWhiteSpace(request.Status)
+            && Enum.TryParse(request.Status, true, out requestedStatus);
 
         if (request.ReservationId.HasValue)
         {
             query = query.Where(x => x.Id == request.ReservationId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ReservationCode))
+        {
+            query = query.Where(x => x.ReservationCode == request.ReservationCode);
         }
 
         if (!string.IsNullOrWhiteSpace(request.BuyerEmail))
@@ -22,9 +31,9 @@ public sealed class GetReservationsByBuyerQueryHandler(IAppDbContext db)
             query = query.Where(x => x.BuyerEmail == request.BuyerEmail);
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Status))
+        if (hasStatusFilter)
         {
-            query = query.Where(x => x.Status.ToString().Equals(request.Status, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(x => x.Status == requestedStatus);
         }
 
         var reservations = await query.OrderByDescending(r => r.CreatedAt).ToListAsync(cancellationToken);

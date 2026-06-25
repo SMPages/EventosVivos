@@ -31,6 +31,14 @@ public sealed class ReservationsController(IMediator mediator) : ControllerBase
         return item is null ? NotFound() : Ok(item);
     }
 
+    [HttpGet("by-code/{reservationCode}")]
+    public async Task<IActionResult> GetByCode(string reservationCode, CancellationToken cancellationToken)
+    {
+        var items = await mediator.Send(new GetReservationsByBuyerQuery(string.Empty, null, null, reservationCode), cancellationToken);
+        var item = items.FirstOrDefault();
+        return item is null ? NotFound() : Ok(item);
+    }
+
     [HttpGet("by-buyer")]
     public async Task<IActionResult> GetByBuyer([FromQuery] string buyerEmail, [FromQuery] string? status, CancellationToken cancellationToken)
     {

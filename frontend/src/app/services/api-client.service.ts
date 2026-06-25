@@ -58,6 +58,10 @@ export class ApiClientService {
     return this.http.get<ReservationItem>(`${this.baseUrl}/reservations/${id}`);
   }
 
+  getReservationByCode(reservationCode: string) {
+    return this.http.get<ReservationItem>(`${this.baseUrl}/reservations/by-code/${encodeURIComponent(reservationCode)}`);
+  }
+
   getReservations(params?: { buyerEmail?: string; status?: string }) {
     const search = new URLSearchParams();
     if (params?.buyerEmail) search.set('buyerEmail', params.buyerEmail);
@@ -72,8 +76,8 @@ export class ApiClientService {
     return this.http.get<{ items: ReservationItem[] }>(`${this.baseUrl}/reservations/by-buyer?${search.toString()}`);
   }
 
-  confirmPayment(payload: { reservationId: number; reservationCode: string; reference: string }) {
-    return this.http.post<{ reservationId: number; reservationCode: string; status: string; confirmedAt: string }>(
+  confirmPayment(payload: { reservationCode: string }) {
+    return this.http.post<{ reservationId: number; reservationCode: string; paymentReference: string; status: string; confirmedAt: string }>(
       `${this.baseUrl}/payments/confirm`,
       payload,
     );

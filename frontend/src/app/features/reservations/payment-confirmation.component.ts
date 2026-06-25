@@ -38,15 +38,15 @@ import { ReservationItem } from '../../models/ui-models';
         <h3>Flujo de trabajo</h3>
         <div class="workflow-step" [class.done]="reservation !== null">
           <span>1</span>
-          <p>Buscar reserva por identificador</p>
+          <p>Buscar reserva por codigo</p>
         </div>
-        <div class="workflow-step" [class.done]="reservation?.status === 'Confirmed'">
+        <div class="workflow-step" [class.done]="reservation !== null && reservation.status !== 'Cancelled'">
           <span>2</span>
-          <p>Validar codigo de reserva y referencia</p>
+          <p>Validar que la reserva siga pendiente</p>
         </div>
         <div class="workflow-step" [class.done]="paymentConfirmed">
           <span>3</span>
-          <p>Confirmar pago y registrar trazabilidad</p>
+          <p>Confirmar pago y generar trazabilidad</p>
         </div>
 
         <div class="workflow-meter" *ngIf="reservation">
@@ -61,24 +61,14 @@ import { ReservationItem } from '../../models/ui-models';
       <p-card styleClass="surface-card">
         <form [formGroup]="form" class="form-grid" (ngSubmit)="search()">
           <div class="field-wrap">
-            <label for="reservationId">ID de reserva</label>
-            <input id="reservationId" pInputText type="number" formControlName="reservationId" />
-            <small class="field-error" *ngIf="form.controls.reservationId.invalid && form.controls.reservationId.touched">ID valido requerido</small>
-          </div>
-
-          <div class="field-wrap">
             <label for="reservationCode">Codigo de reserva</label>
             <input id="reservationCode" pInputText formControlName="reservationCode" />
-          </div>
-
-          <div class="field-wrap">
-            <label for="reference">Referencia</label>
-            <input id="reference" pInputText formControlName="reference" />
+            <small class="field-error" *ngIf="form.controls.reservationCode.invalid && form.controls.reservationCode.touched">Codigo requerido</small>
           </div>
 
           <div class="actions">
             <button pButton type="submit" label="Buscar" icon="pi pi-search" [loading]="searching"></button>
-            <button pButton type="button" label="Confirmar pago" icon="pi pi-check" [disabled]="!reservation || searching || reservation.status === 'Confirmed'" (click)="confirmPayment()"></button>
+            <button pButton type="button" label="Confirmar pago" icon="pi pi-check" [disabled]="!reservation || searching || reservation.status !== 'Pending'" (click)="confirmPayment()"></button>
           </div>
         </form>
       </p-card>
@@ -120,6 +110,7 @@ import { ReservationItem } from '../../models/ui-models';
           <div>
             <h3>Pago confirmado exitosamente</h3>
             <p class="subtle-text">La reserva ya forma parte del revenue confirmado y del inventario vendido.</p>
+            <p class="subtle-text" *ngIf="paymentReference">Referencia generada: <strong>{{ paymentReference }}</strong></p>
           </div>
         </div>
       </p-card>
@@ -290,15 +281,14 @@ import { ReservationItem } from '../../models/ui-models';
 })
 export class PaymentConfirmationComponent {
   readonly form = new FormGroup({
-    reservationId: new FormControl(0, { nonNullable: true, validators: [Validators.required, Validators.min(1)] }),
     reservationCode: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    reference: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
 
   reservation: ReservationItem | null = null;
   searching = false;
   errorMessage = '';
   paymentConfirmed = false;
+  paymentReference = '';
 
   constructor(
     private readonly apiClient: ApiClientService,
@@ -307,8 +297,8 @@ export class PaymentConfirmationComponent {
   ) {}
 
   search(): void {
-    if (this.form.controls.reservationId.invalid) {
-      this.form.controls.reservationId.markAsTouched();
+    if (this.form.controls.reservationCode.invalid) {
+      this.form.controls.reservationCode.markAsTouched();
       return;
     }
 
@@ -316,13 +306,12 @@ export class PaymentConfirmationComponent {
     this.errorMessage = '';
     this.reservation = null;
     this.paymentConfirmed = false;
+    this.paymentReference = '';
 
-    this.apiClient.getReservationById(this.form.controls.reservationId.value).subscribe({
+    this.apiClient.getReservationByCode(this.form.controls.reservationCode.value.trim()).subscribe({
       next: (reservation) => {
         this.reservation = reservation;
-        if (!this.form.controls.reservationCode.value) {
-          this.form.controls.reservationCode.setValue(reservation.reservationCode);
-        }
+        this.form.controls.reservationCode.setValue(reservation.reservationCode);
         this.searching = false;
       },
       error: () => {
@@ -349,16 +338,15 @@ export class PaymentConfirmationComponent {
         this.searching = true;
         this.apiClient
           .confirmPayment({
-            reservationId: value.reservationId,
             reservationCode: value.reservationCode,
-            reference: value.reference,
           })
           .subscribe({
-            next: () => {
+            next: (result) => {
               this.messageService.add({ severity: 'success', summary: 'Pago confirmado', detail: 'El estado fue actualizado correctamente' });
               if (this.reservation) {
                 this.reservation = { ...this.reservation, status: 'Confirmed' };
               }
+              this.paymentReference = result.paymentReference;
               this.paymentConfirmed = true;
               this.searching = false;
             },
