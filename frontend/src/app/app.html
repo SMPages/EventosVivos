@@ -1,0 +1,37 @@
+<p-toast position="top-right"></p-toast>
+<p-confirmDialog [style]="{ width: '28rem' }"></p-confirmDialog>
+
+<div class="app-shell">
+  <header class="app-header surface-card">
+    <div class="brand-wrap">
+      <button pButton type="button" icon="pi pi-bars" class="p-button-text mobile-only" (click)="mobileMenuVisible = true"></button>
+      <div class="brand-logo"><i class="pi pi-prime"></i></div>
+      <div>
+        <h1>EventosVivos</h1>
+        <p>Plataforma de Gestion de Reservas</p>
+      </div>
+    </div>
+
+    <div class="desktop-nav">
+      <p-menubar [model]="navItems"></p-menubar>
+    </div>
+  </header>
+
+  <p-drawer [(visible)]="mobileMenuVisible" position="left" header="Navegacion" [style]="{ width: '18rem' }">
+    <nav class="mobile-nav">
+      <a *ngFor="let item of navItems" [routerLink]="item.routerLink" routerLinkActive="active" (click)="mobileMenuVisible = false">
+        <i [class]="item.icon"></i>
+        <span>{{ item.label }}</span>
+      </a>
+    </nav>
+  </p-drawer>
+
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="app-footer subtle-text">
+    <span>EventosVivos</span>
+    <span>Construido para evaluacion Senior Fullstack</span>
+  </footer>
+</div>

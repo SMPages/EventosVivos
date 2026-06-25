@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore backend/EventosVivos.slnx
+      - name: Build
+        run: dotnet build backend/EventosVivos.slnx --no-restore --configuration Release
+      - name: Test
+        run: dotnet test backend/EventosVivos.slnx --no-build --configuration Release
+      - name: Enforce SC-008 threshold marker
+        run: |
+          grep -R "SC008_ReadEndpoints_P95_ShouldBeUnder500Ms" backend/EventosVivos.Tests/Performance/ReadEndpointsP95Tests.cs

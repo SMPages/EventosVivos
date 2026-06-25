@@ -1,0 +1,39 @@
+# .NET
+bin/
+obj/
+packages/
+*.user
+*.suo
+
+# Node / Angular
+node_modules/
+dist/
+build/
+
+# Logs and env
+*.log
+.env*
+.vs/
+**/.vs/
+.vscode/
+bin/
+obj/
+node_modules/
+dist/
+# Python (tooling-safe)
+__pycache__/
+*.pyc
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.swp
+
+# Test artifacts
+coverage/
+TestResults/
